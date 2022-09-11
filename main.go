@@ -1,24 +1,21 @@
 package main
 
 import (
-	"log"
-	"net/url"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/zserge/lorca"
 )
 
 func main() {
-	// Create UI with basic HTML passed via data URI
-	ui, err := lorca.New("data:text/html,"+url.PathEscape(`
-	<html>
-		<head><title>Hello</title></head>
-		<body><h1>Hello, world!</h1></body>
-	</html>
-	`), "", 480, 320)
-	if err != nil {
-		log.Fatal(err)
+	var ui lorca.UI
+	ui, _ = lorca.New("https://baidu.com", "", 800, 600, "--disable-sync", "--disable-translate")
+	chSignal := make(chan os.Signal, 1)
+	signal.Notify(chSignal, syscall.SIGINT, syscall.SIGTERM)
+	select {
+	case <-ui.Done():
+	case <-chSignal:
 	}
-	defer ui.Close()
-	// Wait until UI window is closed
-	<-ui.Done()
+	ui.Close()
 }
