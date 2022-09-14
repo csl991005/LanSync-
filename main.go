@@ -27,13 +27,19 @@ func main() {
 		r.StaticFS("/static", http.FS(staticFiles))
 		r.NoRoute(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
-			if strings.HasPrefix(path,"/static/"){
-				reader,err:=staticFiles.Open("index.html")
-				if err!=nil{
+			if strings.HasPrefix(path, "/static/") {
+				reader, err := staticFiles.Open("index.html")
+				if err != nil {
 					log.Fatal(err)
 				}
 				defer reader.Close()
-				
+				stat, err := reader.Stat()
+				if err != nil {
+					log.Fatal(err)
+				}
+				ctx.DataFromReader(http.StatusOK, stat.Size(), "text/html;charset=utf-8", reader, nil)
+			} else {
+				ctx.Status(http.StatusNotFound)
 			}
 		})
 		r.Run(":8080")
