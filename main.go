@@ -5,6 +5,7 @@ import (
 	"io/fs"
 	"io/ioutil"
 	"log"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -22,7 +23,22 @@ var FS embed.FS
 
 // 上述语句用于打包时将指定目录下的文件一并打包
 
-func TestController(c *gin.Context) {
+func AddressesController(c *gin.Context) {
+	add, _ := net.InterfaceAddrs()
+	var result []string
+	for _, address := range add {
+		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
+			if ipnet.IP.To4() != nil {
+				result = append(result, ipnet.IP.String())
+			}
+		}
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"addresses": result,
+	})
+}
+
+func TextController(c *gin.Context) {
 	var json struct {
 		Raw string `json:"raw"`
 	}
@@ -62,7 +78,8 @@ func main() {
 		r := gin.Default()
 		staticFiles, _ := fs.Sub(FS, "frontend/dist") // 将所有文件打包成一个变量
 		// 静态文件都在 /static 这个路由，http.FS 读取文件
-		r.GET("api/v1/texts", TestController)
+		r.GET("/api/v1/addresses", AddressesController)
+		r.POST("/api/v1/texts", TextController)
 		r.StaticFS("/static", http.FS(staticFiles))
 		r.NoRoute(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
