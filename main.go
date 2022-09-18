@@ -16,6 +16,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/skip2/go-qrcode"
 )
 
 //go:embed frontend/dist/*
@@ -27,6 +28,7 @@ func AddressesController(c *gin.Context) {
 	add, _ := net.InterfaceAddrs()
 	var result []string
 	for _, address := range add {
+		// 类型断言
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
 				result = append(result, ipnet.IP.String())
@@ -36,6 +38,29 @@ func AddressesController(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"addresses": result,
 	})
+}
+
+func GetUploadsDir() (uploads string) {
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir := filepath.Dir(exe)
+	uploads = filepath.Join(dir, "uploads")
+	return
+}
+
+func UploadsController(c *gin.Context) {
+	if path := c.Param("path"); path != "" {
+		target := filepath.Join(GetUploadsDir(), path)
+		c.Header("Content-Description", "File Transfer")
+		c.Header("Content-Transfer-Encoding", "binary")
+		c.Header("Content-Disposition", "attachment; filename="+path)
+		c.Header("Content-Type", "application/octet-stream")
+		c.File(target)
+	} else {
+		c.Status(http.StatusNotFound)
+	}
 }
 
 func TextController(c *gin.Context) {
@@ -72,12 +97,26 @@ func TextController(c *gin.Context) {
 	}
 }
 
+func QrcodesController(c *gin.Context) {
+	if content := c.Query("content"); content != "" {
+		png, err := qrcode.Encode(content, qrcode.Medium, 256)
+		if err != nil {
+			log.Fatal(err)
+		}
+		c.Data(http.StatusOK, "image/png", png)
+	} else {
+		c.Status(http.StatusBadRequest)
+	}
+}
+
 func main() {
 	go func() {
 		gin.SetMode(gin.DebugMode)
 		r := gin.Default()
 		staticFiles, _ := fs.Sub(FS, "frontend/dist") // 将所有文件打包成一个变量
 		// 静态文件都在 /static 这个路由，http.FS 读取文件
+		r.GET("/api/v1/qrcodes", QrcodesController)
+		r.GET("/uploads/:path", UploadsController)
 		r.GET("/api/v1/addresses", AddressesController)
 		r.POST("/api/v1/texts", TextController)
 		r.StaticFS("/static", http.FS(staticFiles))
