@@ -109,17 +109,48 @@ func QrcodesController(c *gin.Context) {
 	}
 }
 
+func FilesController(c *gin.Context) {
+	file, err := c.FormFile("raw")
+	if err != nil {
+		log.Fatal(err)
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		log.Fatal(err)
+	}
+	dir := filepath.Dir(exe)
+	if err != nil {
+		log.Fatal(err)
+	}
+	filename := uuid.New().String()
+	uploads := filepath.Join(dir, "uploads")
+	err = os.MkdirAll(uploads, os.ModePerm)
+	if err != nil {
+		log.Fatal(err)
+	}
+	fullpath := path.Join("uploads", filename+filepath.Ext(file.Filename))
+	fileErr := c.SaveUploadedFile(file, filepath.Join(dir, fullpath))
+	if fileErr != nil {
+		log.Fatal(fileErr)
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"url": "/" + fullpath,
+	})
+}
+
 func main() {
+	port := "27149"
 	go func() {
 		gin.SetMode(gin.DebugMode)
 		r := gin.Default()
 		staticFiles, _ := fs.Sub(FS, "frontend/dist") // 将所有文件打包成一个变量
 		// 静态文件都在 /static 这个路由，http.FS 读取文件
+		r.StaticFS("/static", http.FS(staticFiles))
+		r.POST("/api/v1/files", FilesController)
 		r.GET("/api/v1/qrcodes", QrcodesController)
 		r.GET("/uploads/:path", UploadsController)
 		r.GET("/api/v1/addresses", AddressesController)
 		r.POST("/api/v1/texts", TextController)
-		r.StaticFS("/static", http.FS(staticFiles))
 		r.NoRoute(func(ctx *gin.Context) {
 			path := ctx.Request.URL.Path
 			if strings.HasPrefix(path, "/static/") {
@@ -137,7 +168,7 @@ func main() {
 				ctx.Status(http.StatusNotFound)
 			}
 		})
-		r.Run(":8080")
+		r.Run(":" + port)
 	}()
 
 	// 监听退出信号
@@ -146,7 +177,7 @@ func main() {
 
 	// 先写死路径开启 chrome
 	chromePath := "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-	cmd := exec.Command(chromePath, "--app=http://127.0.0.1:8080/static/index.html")
+	cmd := exec.Command(chromePath, "--app=http://127.0.0.1:"+port+"/static/index.html")
 	cmd.Start()
 
 	// 等待退出信号
