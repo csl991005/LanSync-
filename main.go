@@ -8,10 +8,7 @@ import (
 )
 
 func main() {
-
-	go func() {
-		server.Run()
-	}()
+	go server.Run()
 
 	// 监听退出信号
 	chSignal := make(chan os.Signal, 1)
