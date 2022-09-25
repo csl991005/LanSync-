@@ -1,7 +1,9 @@
 package server
 
 import (
+	"LanSync/config"
 	"LanSync/server/controller"
+	"LanSync/server/ws"
 	"embed"
 	"io/fs"
 	"log"
@@ -17,7 +19,9 @@ var FS embed.FS
 // 上述语句用于打包时将指定目录下的文件一并打包
 
 func Run() {
-	port := "27149"
+	hub := ws.NewHub()
+	go hub.Run()
+
 	gin.SetMode(gin.DebugMode)
 	r := gin.Default()
 	staticFiles, _ := fs.Sub(FS, "frontend/dist") // 将所有文件打包成一个变量
@@ -28,6 +32,9 @@ func Run() {
 	r.GET("/uploads/:path", controller.UploadsController)
 	r.GET("/api/v1/addresses", controller.AddressesController)
 	r.POST("/api/v1/texts", controller.TextController)
+	r.GET("/ws", func(ctx *gin.Context) {
+		ws.HttpController(ctx, hub)
+	})
 	r.NoRoute(func(ctx *gin.Context) {
 		path := ctx.Request.URL.Path
 		if strings.HasPrefix(path, "/static/") {
@@ -45,5 +52,5 @@ func Run() {
 			ctx.Status(http.StatusNotFound)
 		}
 	})
-	r.Run(":" + port)
+	r.Run(":" + config.GetPort())
 }
