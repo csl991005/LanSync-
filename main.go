@@ -1,26 +1,21 @@
 package main
 
 import (
+	"LanSync/config"
 	"LanSync/server"
 	"os"
-	"os/exec"
-	"os/signal"
 )
 
 func main() {
+	status := make(chan struct{})
 	go server.Run()
-
-	// 监听退出信号
-	chSignal := make(chan os.Signal, 1)
-	signal.Notify(chSignal, os.Interrupt)
-
-	// 先写死路径开启 chrome
-	chromePath := "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
-	cmd := exec.Command(chromePath, "--app=http://127.0.0.1:27149/static/index.html")
-	cmd.Start()
-
+	go config.OpenChrome(status)
+	chSignal := config.ListenToInterrupt()
 	// 等待退出信号
-	<-chSignal
+	select {
+	case <-chSignal:
+	case <-status:
+		os.Exit(1)
+	}
 
-	cmd.Process.Kill()
 }
