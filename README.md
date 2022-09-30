@@ -8,3 +8,5 @@
 	* `go mod tidy`
 	
 3. 执行 `go run main.go` 或者 `go build` 后运行生成的`exe`文件  
+
+4. 在你电脑上开放`27149`端口，否则无法传输
